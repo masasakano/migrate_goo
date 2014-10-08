@@ -1,0 +1,22 @@
+name = "Migrate from goo"
+description = "Module to migrate an old static site content to Drupal 7"
+package = "Migration"
+core = 7.x
+dependencies[] = migrate
+dependencies[] = path
+dependencies[] = i18n
+dependencies[] = taxonomy
+dependencies[] = redirect
+dependencies[] = metatag
+dependencies[] = link
+dependencies[] = context
+dependencies[] = langnonecontext
+
+;node_reference is useful but not required
+;dependencies[] = node_reference
+
+files[] = migrate_goo.module
+files[] = allbutbook.inc
+
+; For testing table_copy plugin. Since is infrequently used, we comment it out.
+; files[] = example.table_copy.inc
