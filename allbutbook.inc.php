@@ -2,24 +2,27 @@
 
 /**
  * @file
- * An example code to import a set of static HTML files to Drupal 7.
+ * An example code to import a set of i18n static HTML files to Drupal 7.
  *
  * This uses the Migrate module (development track, September 2014).
- * For the full description, please consult README.txt
+ * For the full description, please consult README.txt and DESCRIPTION.html
  *
  * @section overview Overview and Background
  *
  * The aim is:
+ * - Import the main body.  (Of course!)
+ * - Preserve the creation/modification times.
  * - Preserve all the legacy URIs.
  * - Natural-language paths, as opposed to the node number, should be displayed.
  * - All the internal links should work.
- * - Reproduce the i18n (internatinalization) structure the original had,
+ * - Reproduce the i18n (internationalization) structure the original had,
  *   so the imported ones have a proper language code, as well as
  *   the Drupal language switcher incorporated.
  * - Make more modern-style URIs as default, while keeping the legacy ones.
+ * - Preserve the creation/modification times.
  * - Preserve most Meta-tags and Link-tags information in the header.
  * - Introduce an taxonomy, based on the top directory name.
- * - The original <h1> tag is deleted, imported as the page title.
+ * - The original <h1> tag is deleted, with the element imported as the page title.
  *
  * The static HTML has the following structure and features:
  * - Mainly in Japanese, but some files have its English counterpart.
@@ -50,15 +53,12 @@
  *   (attribute element is guaranteed to be all lower-cases).
  * - The original files used to be in a different domain.
  *
- * In fact, not all of them were guaranteed in the original HTMLs.  So,
- * I preprocessed all the files with a separate script, which filtered out
- * some header and footers, fixed ill-written HTML tags, converted
- * the character code, and ran "tidy" finally.
  *
  * In the Drupal, the following modules have to be (installed and) enabled:
+ * - path
  * - i18n (Internationalization, Field translation, Translation redirect)
  * - Taxonomy
- * - Querypath
+ * - QueryPath
  * - Redirect
  * - Metatag
  * - Link
@@ -86,8 +86,9 @@
  * - For all the languages, including the default language, explicitly
  *   set the language code for the path, e.g., "en" for English.
  *
- * If you change the user-ID (uid) from the default (=1), give the user the permission of
- * "Use the PHP code text format" in "Filter" section of /admin/people/permissions
+ * If you change the user-ID (uid) from the default (=1), give the user
+ * the permission of "Use the PHP code text format" in "Filter" section
+ * of /admin/people/permissions
  *
  * Usage examples with drush:
  * - % drush migrate-register goo
@@ -100,7 +101,7 @@
  * - @link https://gist.github.com/marktheunissen/2596787 (by Mark Theunissen) @endlink
  * - @link https://gist.github.com/klaasvw/3904524 (by Klaas Van Waesberghe) @endlink
  * - @link http://www.group42.ca/creating_url_redirects_with_migrate_module (by Dale McGladdery) @endlink
- * Note they have been massivly modified.  I am citing them to express
+ * Note they have been massively modified.  I am citing them to express
  * my appreciation!
  *
  *
@@ -117,13 +118,13 @@
  *     to "info/index.html".
  *   - For "Index files", the directory is redirected,
  *     e.g., "info/" => "info/index.html".  
- *     Note: The other way would not work well.  The following explains why.
+ *     Note: The other way around would not work well.  The following explains why.
  *     Suppose the main path is defined as "info/uk" (for info/uk/index.html).
  *     Note a trailing forward-slash must not be included in Drupal path.
- *     Then, a link anchored from info/uk (= info/uk/index.html)
+ *     Then, a hyperlink anchored from info/uk (= info/uk/index.html)
  *     with a relative path, say, "./baa.html", is recognised
  *     by the users' browsers as "info/baa.html", as opposed to the correct
- *     "info/uk/baa.html". Therefore if a user tries to open the linke,
+ *     "info/uk/baa.html". Therefore if a user tries to open the hyperlink,
  *     the browser sends a request of "info/baa.html", which will cause 404,
  *     namely, the dead link. It is the correct interpretation for the browser.
  *     If the original path was "info/uk/", it would work as expected,
@@ -189,132 +190,6 @@
  *   issued if run from drush).
  *
  *
- * @subsection i18n i18n (internationalizatio) in Drupal
- *
- * First, the i18n feature of Drupal 7 is as follows:
- * - The language of a page in the website has 2 meanings (at least):
- *   - Language for the interface, like a menu bar,
- *   - Language of the main content and information directly related to it,
- *     such as, the title.
- * - The default language switcher changes both of the above, as long as
- *   the translation of the node is available.
- * - In Drupal, every node has a property of a single language,
- *   which can be Neutral.
- * - Optionally (by enabling it in the i18n configuration),
- *   each field in a node can have its own translation (I think...).
- *   But it is basically unrelated with the language of the node.
- * - The language of the node has nothing to do with the character set
- *   of the content.  It is possible (if confusing to any one) to set
- *   the language of the node as English, where the main content
- *   uses only Japanese characters, and vice versa.
- * - If the language of the node is set to be neutral, the page can be accessed
- *   and viewed in any language setting, where the language-switcher 
- *   merely means the setting of the language for the interface.
- * - If the language of the node is set to be a specific one, be it English or
- *   Japanese, the node is accessed and viewed only when the particular
- *   language environment is set.
- * - How to set, or to provide users with the way to set,
- *   the language environment depends how you configure the site.
- *   Users could manually switch the language like inputting a particular path,
- *   but the language switcher would provide the easiest way.
- * - If all the (default) options to detect the language with the default priority
- *   are set as described above, switching of language is normally done by adding
- *   the language-code path at the top directory, e.g., /en/info/index.html
- * - When setting the path, the path should not include the language code;
- *   e.g., Not /en/info/foo.html but /info/foo.html for Japanese page.
- *   Then when a user accesses /info/foo.html it will be automatically
- *   transferred to /ja/info/foo.html (exception applied as described below)
- * - The same path can be set for a page for different languages, such as,
- *   /info/index.html for both /en/info/foo.en.html and /ja/info/foo.ja.html 
- *   as long as they are registered as the translation to each other.
- *   Even completed paths can be set for them, such as, 
- *   /info/End.html and /undo/Jab.html respectively for English and Japanese.
- * - When a user accesses a path in an language, if the page (path)
- *   has a translation for the user's chosen language, that translated page
- *   is always shown. For example, in the above example, if the user's
- *   chosen language is Japanese, when s/he accesses /info/index.html or
- *   even /info/End.html, the page that comes up is always /ja/info/index.html 
- * - Note the "user's chosen language" is determined in the priority as set
- *   in the i18n configuration, as described above.
- * - In default, English is the default language of Drupal, and 
- *   the language code for the path is undefined(!).  This default setting
- *   can lead to a confusing situation (it took a long time for me
- *   to figure it out...). Suppose there are Japanese and English pages
- *   /info/foo.ja.html and /info/foo.en.html respectively and their
- *   paths are set to be /info/index.html .  This means their respective paths,
- *   as you see in the address bar in your browser, are /ja/info/index.html
- *   and /info/index.html (the latter is Not /en/info/index.html in default!).
- *   Then a user opens /info/index.html it will be an English version,
- *   no matter what her/his preferred language in the browser setting is,
- *   because /info/index.html is the proper path for English version.
- * - In the above example, if a user opens the same path from an internal link from
- *   a Japanese page, that is a different story, because the embedded link
- *   in the HTML file, which was originally written as "/info/index.html",
- *   has been modified to be /ja/info/index.html when displayed.  In other words,
- *   in this case, there is no language-neutral path, as long as
- *   the site-preference for the language selection places the URI selection
- *   at the top priority, as in default.
- * - As explained above, if the language-code for the path for the default
- *   language is set, this confusing situation would be unlikely to happen. For example,
- *   /info/index.html does not belong to either Japanese or English,
- *   hence the method with the following priority to decide the language
- *   will be used: Session, User, Broser in this order in default.
- * - As a reference, in the Apache server envitonment, it is common (to set up)
- *   example.html.en and example.html.ja mean English and Japanese contents,
- *   respectively, and if a user accesses example.html, the Apache server
- *   decides which language-version it will bring up, depending on
- *   the environments of the user, site, etc.  And if s/he requests explicitly
- *   example.html.ja then it will always bring up the Japanese version.
- * - The path-based language system in Drupal i18n, however, does not work well
- *   with this suffix-naming-based language negotiation of Apache.
- *   Drupal can decide which language-version it would show when
- *   a neutral path/file (such as, example.html in the case above),
- *   just as the Apache server does.  However, when a specific language-version
- *   like example.html.ja is requested, most notably from the hard-coded link
- *   in a HTML file, Drupal will still decide what to show, thorougly
- *   depending on the other environments and it does not care
- *   about the requested URI (because the filename is a mere alias for the content
- *   that has multiple-launguage versions, as mentioned above).
- *   For that reason, the hard-coded links to the different-language version
- *   would not work, providing those nodes with different-languages
- *   are registered as translation to one another in Drupal.
- * - The fact Drupal automatically adds a language prefix to internal links
- *   hard-coded in the page content may surprise those uninitiated.
- *   Suppose a hard-coded link in a Japanese page originally points to an
- *   English-only page explicitly, say, /english_only.en.html, and
- *   suppose it does not have any translation.  Then, when the Japanese page
- *   is displayed the link becomes /ja/english_only.en.html already.
- *   There is no node of /ja/english_only.en.html (but /english_only.en.html
- *   and maybe /en/english_only.en.html if the "en" prefix is already configured),
- *   hence, 404 (Not found) error will be returned.   
- * - You can disable the language selection by Drupal based on the path
- *   (or domain) prefix entirely.  For example, Google.com seems to decide
- *   the language of the page, depending on the user's browser's preference
- *   and where geographycally the accessed IP is (the latter is not included
- *   in the default Drupal i18n functionality).  That is another way for sure.
- * - Note that showing different contents for the same URI, just depending on
- *   user's setting or session parameters, can be bad for SEO, namely,
- *   penalised in the rating by search engines, allegedly.
- * - There is a bug in Drupal i18n:
- *   - @link https://www.drupal.org/node/1294946 "Language detection based on session doesn't work with URL aliases" @endlink
- *   If you access a path with the session parameter,
- *   the URL aliases do not work as of October 2014.
- *   For example, if you access to /info/index.html?language=ja
- *   it will bring up a path like /node/12345 .
- * - The path feature can be disabled, or you choose not to set the path. 
- *   Still, any node can be always accessed via its node number like /node/123 .
- * - Each language in a pair of translated contents has its own node,
- *   that is, they do not share the node-id.
- * - There are three disadvantages for node-based path, particularly
- *   for the imported static HTMLs.  First, any internal link in the relative
- *   path hard-coded in the HTML would not work from that sort of node-type
- *   paths. The relative path is, for example, "./baa.html", but obviously
- *   there is no node with the path "/node/baa.html", hence those links break.
- *   Second, this type of meaningless paths are bad for SEO (Search-Engine
- *   Optimization).  Third, it is less portable, because potential migration
- *   to any (CMS) system, including another Drupal system, can be problematic.
- *
- *
  * @subsection strategy Strategy of migration of static HTMLs in i18n
  *
  * - The grand picture is as follows:
@@ -324,36 +199,28 @@
  *     some of the existing contents are translated into Japanese.
  *   - None of the top directories of the import HTMLs crashes
  *     with the existing ones.
- *   - The front-page and menu for the Japanese contents are newly created
- *     (not imported).
- *   - The Japanese and English versions of the sites will be distinguished
+ *   - The front-page and menu for the Japanese contents are not imported.
+ *   - The Japanese and English versions of the nodes will be distinguished
  *     based on the path-prefix as the first priority in the i18n configuration.
  *   - English and Japanese contents on the site will be seamless,
  *     jumped to each other via a language-switcher in a menu,
  *     though a significant difference in contents between them will remain.
  * - The path aliases are enabled.  Hence the nominal path is not
  *   a /node/12345 type, but like /info/foobaa.html
- * - The Drupal path for any imported node is set to be the filename
+ * - The Drupal path (URL Alias) for any imported node is set to be the filename
  *   of the HTML minus any language-related suffix, but only .html
  *   For example, for the file /info/index.jp.jis.html the path is
  *   /info/index.html
  * - For index.html, to access via the directory is allowed; for example,
- *   /info/ is redirected to /info/index.html
+ *   /info is redirected to /info/index.html
  * - When there are both Japanese and English versions available
- *   for the same content, their pathes are set to be the same.
+ *   for the same content, their paths (URL aliases) are set to be the same.
  * - The language of the node is in default neutral, except when the version
  *   in the other language is available, in which case the appropriate language
  *   is set for each node.
  * - The language of the main content (body) is always set appropriately.
  *   even when the language of the node is neutral.
- * - The language-neutral means any one, whatever their language
- *   setting/environment is, can view the page via the neutral path,
- *   e.g., without adding the language-code prefix.
- * - Conversely if there was only one language-version for a content,
- *   and if the language of the node was not neutral,
- *   when a visitor with the different language accesses the neutral path,
- *   s/he would get the 404 (Not found), which is not desirable in my case.
- * - The built-in language-switcher is disabled in default (in those nodes
+ * - The built-in language-switcher is disabled in default (in the paths
  *   of the imported HTMLs).  This is set with the configuration of the block
  *   (the path section for the language-switcher block).
  * - However, for the nodes that have a version in the other language,
@@ -363,15 +230,16 @@
  *   with the added langnonecontext module.
  * - When they switch the language, the language for the interface changes
  *   at the same time.
- * - The most tricky thing is the hard-coded language-switcher in some HTMLs,
+ * - The most tricky thing is the hard-coded language-switchers in some HTMLs,
  *   that is, embedded anchors to the version of the other language,
- *   break down in migration.  I have solved this problem by replacing
+ *   break down in migration.  This problem is solved by replacing
  *   the anchor tag during migration with a small piece of PHP code
- *   to determine the link to the other language version on the fly.
+ *   (for relative paths) to determine the link to the other language version
+ *   on the fly.
  *
  * @section Unresolved issues
  *
- * - When a file is a sympolic link to another file in the file list
+ * - When a file is a symbolic link to another file in the file list
  *   to be imported, both the files will be imported as separate files with
  *   the identical content.  Ideally the path that is a symbolic-link
  *   should be treated as a redirection to the original file.
@@ -384,8 +252,8 @@
  *
  */
 
-define('ALLBUTBOOK_TOPHTMLDIR', '/Users/alpin/www/goo_utf8new');	// Change this!
-define('LEGACY_DOMAIN_ROOT', 'http://alpiniste.hp.infoseek.co.jp/');
+define('ALLBUTBOOK_TOPHTMLDIR', '/MY/LEGACY/HTML/ROOT');	// Change this!
+define('LEGACY_DOMAIN_ROOT', 'http://example.com/');
 define('MSG_TRANS_VERSION', 'Translated-Version');
 
 require_once drupal_get_path('module', 'migrate_goo') . '/html_parser.inc';
@@ -818,7 +686,7 @@ class AllbutbookHtmlJaMigration extends GooAllbutbookMigration {
         array(ALLBUTBOOK_TOPHTMLDIR),	// List of Directories,
         ALLBUTBOOK_TOPHTMLDIR,			// Root directory to strip,
         '/.+\.html$/',					// Filter,
-        $options,						// Option(Exception)
+        $options						// Option(Exception)
     );
 
     $item_file    = new MigrateItemFile(ALLBUTBOOK_TOPHTMLDIR);
